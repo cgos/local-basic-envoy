@@ -1,6 +1,14 @@
+admin:
+  access_log_path: "/dev/stdout"
+  address:
+    socket_address:
+      protocol: TCP
+      address: 127.0.0.1
+      port_value: 8001
 static_resources:
   listeners:
-  - address:
+  - name: listener_0
+    address:
       socket_address:
         address: 0.0.0.0
         port_value: 80
@@ -15,26 +23,32 @@ static_resources:
             name: local_route
             virtual_hosts:
             - name: backend
-              domains:
-              - "*"
+              domains: ["*"]
               routes:
               - match:
-                  prefix: "/httpbin"
+                  prefix: "/get"
                 route:
+                  host_rewrite: httpbin.org
                   cluster: httpbin
               - match:
-                  prefix: "/hn"
+                  prefix: "/badssl"
                 route:
-                  cluster: hackernews
+                  cluster: badssl
+                  host_rewrite: expired.badssl.com
+              - match:
+                  prefix: "/"
+                route:
+                  host_rewrite: www.google.com
+                  cluster: google
           http_filters:
           - name: envoy.router
             typed_config: {}
   clusters:
   - name: httpbin
     connect_timeout: 0.25s
-    type: strict_dns
-    lb_policy: round_robin
-    http2_protocol_options: {}
+    type: LOGICAL_DNS
+    dns_lookup_family: V4_ONLY
+    lb_policy: ROUND_ROBIN    
     load_assignment:
       cluster_name: httpbin
       endpoints:
@@ -42,25 +56,48 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: https://httpbin.org/get
-                port_value: 80
-  - name: hackernews
+                address: httpbin.org
+                port_value: 443
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext
+        sni: httpbin.org
+  - name: badssl
     connect_timeout: 0.25s
-    type: strict_dns
-    lb_policy: round_robin
-    http2_protocol_options: {}
+    type: LOGICAL_DNS
+    dns_lookup_family: V4_ONLY
+    lb_policy: ROUND_ROBIN    
     load_assignment:
-      cluster_name: hackernews
+      cluster_name: badssl
       endpoints:
       - lb_endpoints:
         - endpoint:
             address:
               socket_address:
-                address: https://news.ycombinator.com/news
-                port_value: 80
-admin:
-  access_log_path: "/dev/null"
-  address:
-    socket_address:
-      address: 0.0.0.0
-      port_value: 8001
+                address: expired.badssl.com
+                port_value: 443
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext
+        sni: "*.badssl.com"
+  - name: google
+    connect_timeout: 0.25s
+    type: LOGICAL_DNS
+    dns_lookup_family: V4_ONLY
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: google
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: www.google.com
+                port_value: 443
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext
+        sni: www.google.com
