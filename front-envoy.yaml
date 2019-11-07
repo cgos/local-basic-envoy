@@ -19,44 +19,44 @@ static_resources:
               - "*"
               routes:
               - match:
-                  prefix: "/service/1"
+                  prefix: "/httpbin"
                 route:
-                  cluster: service1
+                  cluster: httpbin
               - match:
-                  prefix: "/service/2"
+                  prefix: "/hn"
                 route:
-                  cluster: service2
+                  cluster: hackernews
           http_filters:
           - name: envoy.router
             typed_config: {}
   clusters:
-  - name: service1
+  - name: httpbin
     connect_timeout: 0.25s
     type: strict_dns
     lb_policy: round_robin
     http2_protocol_options: {}
     load_assignment:
-      cluster_name: service1
+      cluster_name: httpbin
       endpoints:
       - lb_endpoints:
         - endpoint:
             address:
               socket_address:
-                address: service1
+                address: https://httpbin.org/get
                 port_value: 80
-  - name: service2
+  - name: hackernews
     connect_timeout: 0.25s
     type: strict_dns
     lb_policy: round_robin
     http2_protocol_options: {}
     load_assignment:
-      cluster_name: service2
+      cluster_name: hackernews
       endpoints:
       - lb_endpoints:
         - endpoint:
             address:
               socket_address:
-                address: service2
+                address: https://news.ycombinator.com/news
                 port_value: 80
 admin:
   access_log_path: "/dev/null"
